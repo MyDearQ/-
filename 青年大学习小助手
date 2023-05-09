@@ -1,0 +1,241 @@
+import time
+import pandas as pd
+import win32api
+import win32con
+import win32gui
+import win32com.client
+import win32clipboard as w
+import pyautogui
+import openpyxl
+import os
+import glob
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver import Keys
+from selenium.webdriver.edge.service import Service
+from selenium.webdriver.common.by import By
+
+# 以上包安装命令如下
+# pip install numpy
+# pip install pandas
+# pip install pywin32
+# pip install pyautogui
+# pip install openpyxl
+# pip install selenium==4.9.0
+
+
+# msedgedriver 所在的位置，请与Edge浏览器的版本相同（Eg浏览器打开“edge://settings/help”或者设置中查看）
+# msedgedriver下载链接https://msedgewebdriverstorage.z22.web.core.windows.net # 放置位置任意
+msedgedriver_path = r"C:\Users\LOVQ\.cache\selenium\msedgedriver\win64\113.0.1774.35\msedgedriver.exe"
+download_path = 'C:\\Users\\LOVQ\\Downloads'  # 浏览器的默认下载路径
+log_web = "https://tuan.12355.net/bg/index.html"  # 登录网页，智慧团建网址
+user_name = "请输出账户名"  # 用户名
+user_password = "请输出账密码"  # 用户密码
+info = "青年大学习助手提醒你本周还未参学本周的青年大学习>_<"  # 提醒语
+
+
+# 本次先清除DNS，为浏览器加速
+# 后打开浏览器自动定位未参学名单，其中会有一定的等待，为加载页面留时间
+# 再打开微信，逐个名字绝对地址定位查询发送提醒语
+# 总共运行时间不超过两分钟
+
+
+def clear_DNS():
+    # 自动清理DNS，加速网络连接，减少网络故障。
+    shell = win32com.client.Dispatch("WScript.Shell")
+    shell.SendKeys("^{ESC}")
+    time.sleep(0.5)
+    shell.SendKeys("cmd")
+    time.sleep(1)
+    shell.SendKeys("{ENTER}")
+    time.sleep(0.5)
+    shell.SendKeys("{ENTER}")
+    time.sleep(0.5)
+    shell.SendKeys("ipconfig /flushdns")
+    time.sleep(0.5)
+    shell.SendKeys("{ENTER}")
+    time.sleep(0.5)
+    shell.SendKeys("exit")
+    time.sleep(0.5)
+    shell.SendKeys("{ENTER}")
+
+
+def open_browser():
+    # 创建 Edge 浏览器对象
+    driver = webdriver.Edge(
+        service=Service(
+            executable_path=msedgedriver_path),
+    )
+
+    driver.implicitly_wait(10)  # 隐式等待10秒
+    driver.get(log_web)
+    # 输入用户名和密码并单击“登录”按钮
+    username = driver.find_element(By.ID, 'userName')
+    password = driver.find_element(By.ID, "password")
+    username.send_keys(user_name)
+    password.send_keys(user_password)
+    password.send_keys(Keys.RETURN)
+    driver.implicitly_wait(10)  # 隐式等待10秒
+    # 打开青年大学习
+    element = driver.find_element(By.XPATH,
+                                  "//div[contains(@class,'panel-title panel-with-icon') and text()='青年大学习']")
+    element.click()
+    time.sleep(7)  # 强制等待五秒，等待页面加载完成
+    # 打开数据查看
+    driver.get("https://youthstudy.12355.net/backend/#/1366708427146862593/Statistics")
+    # 获取所有浏览器窗口的句柄列表
+    handles = driver.window_handles
+    # 将当前句柄切换到第一个窗口
+    driver.switch_to.window(handles[0])
+    # 使用 find_element_by_xpath 定位目标按钮元素
+    driver.find_element(By.XPATH, "//td[contains(@class,'el-table_1_column_5 is-center')]").click()
+    time.sleep(3)  # 强制休眠3秒，保证加载完成
+    button = driver.find_element(By.XPATH,
+                                 "//button[contains(@class, 'el-button el-button--primary el-button--small')\
+                                 ]//span[text()='导出未参学团员名单']")
+    button.click()
+    button.click()
+    time.sleep(3)
+    driver.close()  # 关闭当前窗口
+    driver.quit()  # 退出WebDriver并关闭浏览器
+
+
+def log_in_browser(user_name, user_password):
+    # 输入网址
+    pyautogui.sleep(3)
+    pyautogui.typewrite(log_web)
+    pyautogui.press("enter")
+    pyautogui.sleep(3)
+
+    # 输入用户名、密码
+    pyautogui.typewrite(user_name)
+    pyautogui.press("tab")
+    pyautogui.typewrite(user_password)
+    pyautogui.press("enter")
+    pyautogui.sleep(3)
+
+
+def return_not_registered():
+    movePos(150, 910)  # 小窗口打开智慧团建
+    time.sleep(0.5)
+    click()
+    movePos(75, 160)
+    time.sleep(1)
+    click()
+    movePos(80, 250)
+    time.sleep(1)
+    click()
+    movePos(1150, 580)
+    time.sleep(1)
+    click()
+    movePos(960, 240)
+    time.sleep(1)
+    click()
+    pyautogui.typewrite('D:\\')
+    pyautogui.press("enter")
+
+
+def open_wechat():  # 打开微信
+    shell = win32com.client.Dispatch("WScript.Shell")
+    shell.SendKeys("^{ESC}")
+    time.sleep(0.5)
+    shell.SendKeys("wechat")
+    time.sleep(0.5)
+    shell.SendKeys("{ENTER}")
+
+
+# 把文字放入剪贴板
+def setText(aString):
+    w.OpenClipboard()
+    time.sleep(0.01)
+    w.EmptyClipboard()
+    w.SetClipboardData(win32con.CF_UNICODETEXT, aString)
+    w.CloseClipboard()
+
+
+# 模拟ctrl+V
+def ctrlV():
+    win32api.keybd_event(17, 0, 0, 0)  # ctrl
+    win32api.keybd_event(86, 0, 0, 0)  # V
+    win32api.keybd_event(86, 0, win32con.KEYEVENTF_KEYUP, 0)  # 释放按键
+    win32api.keybd_event(17, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
+# 模拟alt+s
+def altS():
+    win32api.keybd_event(18, 0, 0, 0)
+    win32api.keybd_event(83, 0, 0, 0)
+    win32api.keybd_event(83, 0, win32con.KEYEVENTF_KEYUP, 0)
+    win32api.keybd_event(18, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
+# 模拟enter
+def enter():
+    win32api.keybd_event(13, 0, 0, 0)
+    win32api.keybd_event(13, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
+# 模拟单击
+def click():
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+
+# 移动鼠标的位置
+def movePos(x, y):
+    win32api.SetCursorPos((x, y))
+
+
+def send_information(members, information):
+    for i in range(len(members)):
+        time.sleep(0.01)
+        # 获取鼠标当前位置
+        hwnd = win32gui.FindWindow("WeChatMainWndForPC", None)
+        win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+        win32gui.MoveWindow(hwnd, 0, 0, 1000, 700, True)
+        time.sleep(0.5)
+        # 1.移动鼠标到通讯录位置，单击打开通讯录
+        movePos(28, 147)
+        click()
+        # 2.移动鼠标到搜索框，单击，输入要搜索的名字
+        movePos(148, 35)
+        click()
+        time.sleep(0.5)
+        setText((members[i]))  # 好友文件
+        ctrlV()
+        time.sleep(0.5)  # 停1秒，给微信一个反应的时间
+        enter()
+        time.sleep(0.5)
+        setText(information)
+        ctrlV()
+        altS()
+        time.sleep(0.5)
+
+
+def read_have_no_watch_student():
+    # 文件名匹配模式
+    file_pattern = '*组织未参学名单*.xlsx'
+
+    # 获取指定目录下符合匹配模式的所有文件
+    files = glob.glob(os.path.join(download_path, file_pattern))
+
+    # 获取最靠后的文件
+    latest_file = max(files, key=os.path.getmtime)
+    # 读取xlsx文件
+    df = pd.read_excel(latest_file)
+    col_array = df.iloc[1:, 0].str.split().tolist()
+    # 将字符串转换为列表对象
+    temp = []
+    for j in range(len(col_array)):
+        temp.append(col_array[j][0])
+    print(temp)
+    return temp
+
+
+if __name__ == "__main__":
+    clear_DNS()
+    open_browser()
+    # return_not_registered() 此为据对坐标定位，切了吧
+    member = read_have_no_watch_student()
+    open_wechat()
+    send_information(member, info)
